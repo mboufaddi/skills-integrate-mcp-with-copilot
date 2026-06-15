@@ -2,6 +2,12 @@ document.addEventListener("DOMContentLoaded", () => {
   const activitiesList = document.getElementById("activities-list");
   const activitySelect = document.getElementById("activity");
   const signupForm = document.getElementById("signup-form");
+  const loginForm = document.getElementById("login-form");
+  const loginMessageDiv = document.getElementById("login-message");
+  const activitiesSection = document.getElementById("activities-container");
+  const signupSection = document.getElementById("signup-container");
+
+  let authToken = null;
   const messageDiv = document.getElementById("message");
 
   // Function to fetch activities from API
@@ -80,6 +86,9 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/unregister?email=${encodeURIComponent(email)}`,
         {
           method: "DELETE",
+          headers: {
+            Authorization: authToken,
+          },
         }
       );
 
@@ -110,6 +119,45 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
+  // Handle login form submission
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch(`/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, {
+        method: "POST",
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        authToken = result.token;
+        loginMessageDiv.textContent = result.message;
+        loginMessageDiv.className = "message success";
+        loginForm.reset();
+        document.getElementById("login-container").classList.add("hidden");
+        activitiesSection.classList.remove("hidden");
+        signupSection.classList.remove("hidden");
+        fetchActivities();
+      } else {
+        loginMessageDiv.textContent = result.detail || "Login failed";
+        loginMessageDiv.className = "message error";
+      }
+
+      loginMessageDiv.classList.remove("hidden");
+      setTimeout(() => {
+        loginMessageDiv.classList.add("hidden");
+      }, 5000);
+    } catch (error) {
+      loginMessageDiv.textContent = "Login request failed.";
+      loginMessageDiv.className = "message error";
+      loginMessageDiv.classList.remove("hidden");
+    }
+  });
+
   // Handle form submission
   signupForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -124,6 +172,9 @@ document.addEventListener("DOMContentLoaded", () => {
         )}/signup?email=${encodeURIComponent(email)}`,
         {
           method: "POST",
+          headers: {
+            Authorization: authToken,
+          },
         }
       );
 
@@ -156,5 +207,6 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   // Initialize app
-  fetchActivities();
+  activitiesSection.classList.add("hidden");
+  signupSection.classList.add("hidden");
 });

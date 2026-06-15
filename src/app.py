@@ -5,7 +5,7 @@ A super simple FastAPI application that allows students to view and sign up
 for extracurricular activities at Mergington High School.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 import os
@@ -20,6 +20,11 @@ app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
           "static")), name="static")
 
 # In-memory activity database
+auth_users = {
+    "teacher1@mergington.edu": "password123",
+    "teacher2@mergington.edu": "password456",
+}
+
 activities = {
     "Chess Club": {
         "description": "Learn strategies and compete in chess tournaments",
@@ -88,8 +93,25 @@ def get_activities():
     return activities
 
 
+def validate_token(authorization: str | None):
+    if not authorization:
+        return None
+    if authorization.startswith("Bearer "):
+        username = authorization[len("Bearer "):]
+        if username in auth_users:
+            return username
+    return None
+
+@app.post("/login")
+def login_endpoint(username: str, password: str):
+    if username in auth_users and auth_users[username] == password:
+        return {"message": "Login successful", "token": f"Bearer {username}"}
+    raise HTTPException(status_code=401, detail="Invalid username or password")
+
 @app.post("/activities/{activity_name}/signup")
-def signup_for_activity(activity_name: str, email: str):
+def signup_for_activity(activity_name: str, email: str, authorization: str | None = Header(None)):
+    if not validate_token(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
     """Sign up a student for an activity"""
     # Validate activity exists
     if activity_name not in activities:
@@ -111,8 +133,11 @@ def signup_for_activity(activity_name: str, email: str):
 
 
 @app.delete("/activities/{activity_name}/unregister")
-def unregister_from_activity(activity_name: str, email: str):
+def unregister_from_activity(activity_name: str, email: str, authorization: str | None = Header(None)):
     """Unregister a student from an activity"""
+    if not validate_token(authorization):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     # Validate activity exists
     if activity_name not in activities:
         raise HTTPException(status_code=404, detail="Activity not found")
